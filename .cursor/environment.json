@@ -1,0 +1,17 @@
+{
+  "name": "Employment Management",
+  "install": "bash .cursor/install.sh",
+  "terminals": [
+    {
+      "name": "app",
+      "command": "java -jar target/employment-management-1.0.0.jar",
+      "description": "Spring Boot server on port 8080 serving the REST API (/api/employees) and the web UI (/)."
+    }
+  ],
+  "ports": [
+    {
+      "name": "web",
+      "port": 8080
+    }
+  ]
+}
