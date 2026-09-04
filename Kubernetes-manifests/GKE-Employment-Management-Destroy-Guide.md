@@ -1,4 +1,5 @@
-Order of Destroy
+## Order of Destroy
+
 1.kubectl delete httproute employment-management -n stateful-demo
 httproute.gateway.networking.k8s.io "employment-management" deleted from stateful-demo namespace
 2.kubectl delete gateway employment-management-gateway -n stateful-demo
@@ -6,13 +7,15 @@ gateway.gateway.networking.k8s.io "employment-management-gateway" deleted from s
 3.kubectl delete secret cloudaiops-tls -n stateful-demo
 secret "cloudaiops-tls" deleted from stateful-demo namespace
 
-App Deletion
+## App Deletion
+
 1.kubectl delete service employment-management -n stateful-demo
 service "employment-management" deleted from stateful-demo namespace
 2.kubectl delete deployment employment-management -n stateful-demo
 deployment.apps "employment-management" deleted from stateful-demo namespace
 
-postgres Database Deletion
+## postgres Database Deletion
+
 1.kubectl delete statefulset postgres -n stateful-demo
 statefulset.apps "postgres" deleted from stateful-demo namespace
 2. kubectl delete service postgres -n stateful-demo
@@ -24,11 +27,13 @@ Gi        RWO            standard-rwo   <unset>                 19h
 4.kubectl delete pvc --all -n stateful-demo
 persistentvolumeclaim "postgres-data-postgres-0" deleted from stateful-demo namespace
 
-Namespace Deletion
+## Namespace Deletion
+
 1.kubectl delete namespace stateful-demo
 namespace "stateful-demo" deleted
 
-Delete Cluster
+## Delete Cluster
+
 gcloud container clusters delete k8s-postgres-lab \
   --region us-central1 \
   --project gcp-dev-july-2026
@@ -40,7 +45,8 @@ Do you want to continue (Y/n)?  y
 Deleting cluster k8s-postgres-lab...done.
 Deleted [https://container.googleapis.com/v1/projects/gcp-dev-july-2026/zones/us-central1/clusters/k8s-postgres-lab].
 
-Check Static IP
+## Check Static IP
+
 gcloud compute addresses describe cloudaiops-gateway-ip \
   --global \
   --project gcp-dev-july-2026
@@ -57,7 +63,8 @@ networkTier: PREMIUM
 selfLink: https://www.googleapis.com/compute/v1/projects/gcp-dev-july-2026/global/addresses/cloudaiops-gateway-ip
 status: RESERVED
 
-Delete Static IP
+## Delete Static IP
+
  gcloud compute addresses delete cloudaiops-gateway-ip \
   --global \
   --project gcp-dev-july-2026
@@ -68,7 +75,8 @@ Do you want to continue (Y/n)?  y
 
 Deleted [https://www.googleapis.com/compute/v1/projects/gcp-dev-july-2026/global/addresses/cloudaiops-gateway-ip].
 
-Domain Check
+## Domain Check
+
 nslookup -type=A cloudaiops.site 8.8.8.8
 
 Expected:
@@ -79,7 +87,8 @@ nslookup www.cloudaiops.site 8.8.8.8
 deally it ultimately resolves to:
 8.233.53.213
 
-1. What is DNS?
+## 1. What is DNS?
+
 When you type:
 cloudaiops.site
 your computer needs to find its IP address:
@@ -93,7 +102,9 @@ Name                         IP
 cloudaiops.site       →      8.233.53.213
 google.com            →      ...
 github.com            →      ...
-2. What is 8.8.8.8?
+
+## 2. What is 8.8.8.8?
+
 8.8.8.8 is a public DNS resolver operated by Google
 
 So when you run:
@@ -117,7 +128,9 @@ cloudaiops.site
       │
       ▼
 8.233.53.213
-3. What is 1.1.1.1?
+
+## 3. What is 1.1.1.1?
+
 1.1.1.1 is another public DNS resolver, operated by Cloudflare.
 So:
 nslookup -type=A cloudaiops.site 1.1.1.1
@@ -135,7 +148,9 @@ cloudaiops.site
       │
       ▼
 8.233.53.213
-4. Why do we use them?
+
+## 4. Why do we use them?
+
 When you ran:
 your computer used its default DNS server:
 2404:ba00:fd00::12
@@ -145,7 +160,8 @@ nslookup cloudaiops.site 8.8.8.8
 you explicitly told nslookup:
 "Use Google DNS instead of my default DNS." That's why you got a response.
 
-5. 8.8.8.8 vs 1.1.1.1
+## 5. 8.8.8.8 vs 1.1.1.1
+
 Both are public DNS resolvers.
 | DNS       | Provider   | Purpose               |
 | --------- | ---------- | --------------------- |
@@ -157,7 +173,8 @@ Both are public DNS resolvers.
 You can use either:
 nslookup -type=A cloudaiops.site 8.8.8.8 or nslookup -type=A cloudaiops.site 1.1.1.1
 
-6. Very important distinction
+## 6. Very important distinction
+
 Don't confuse these two IPs:
 DNS server IP
 8.8.8.8-->This is Google's DNS server.
@@ -174,7 +191,9 @@ DNS SERVER
    ↑
 YOUR WEBSITE/GKE IP
 "Here is where cloudaiops.site points"
-7. Why did we use -type=A?
+
+## 7. Why did we use -type=A?
+
 This is another important piece.
 
 DNS supports different record types.
@@ -200,7 +219,9 @@ means:
                   │
                   ▼
           DNS server 8.8.8.8
-8. The complete picture
+
+## 8. The complete picture
+
 For your domain:
                    YOUR COMPUTER
                          │
@@ -227,11 +248,13 @@ For your domain:
                          │
                          ▼
                  Employment Management
-				 Easy way to remember
+
+### Easy way to remember
+
 
 8.8.8.8 / 1.1.1.1 = "Who should I ask?"
 
 8.233.53.213 = "Where is my application?"
 
-And that's why explicitly specifying 8.8.8.8 or 1.1.1.1 is useful when troubleshooting DNS: 
+And that's why explicitly specifying 8.8.8.8 or 1.1.1.1 is useful when troubleshooting DNS:
 it lets you test your domain against a known public resolver instead of relying on your local ISP/router DNS
