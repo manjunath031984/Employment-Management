@@ -5,6 +5,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "employment-management.labels" . | nindent 4 }}
+
 spec:
   serviceName: {{ include "employment-management.postgresName" . }}
   replicas: {{ .Values.postgres.replicaCount }}
@@ -57,7 +58,7 @@ spec:
 
           volumeMounts:
             - name: postgres-data
-              mountPath: /var/lib/postgresql/data
+              mountPath: /var/lib/postgresql
 
   volumeClaimTemplates:
     - metadata:
@@ -65,7 +66,9 @@ spec:
       spec:
         accessModes:
           - ReadWriteOnce
+
         storageClassName: {{ .Values.postgres.storage.className }}
+
         resources:
           requests:
             storage: {{ .Values.postgres.storage.size }}
