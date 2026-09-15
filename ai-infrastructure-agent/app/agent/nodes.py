@@ -17,6 +17,24 @@ Workflow:
 from typing import Any
 
 from app.agent.state import InfraState
+from app.tools.gateway_tools import (
+    inspect_gateway,
+    investigate_gateway_connectivity,
+    list_httproutes,
+)
+from app.tools.kubernetes_tools import (
+    get_deployment,
+    get_deployments,
+    get_endpoints,
+    get_pod,
+    get_pod_events,
+    get_pod_logs,
+    get_pods,
+    get_pvcs,
+    get_service,
+    get_services,
+    get_statefulsets,
+)
 
 
 # ============================================================================
@@ -211,52 +229,364 @@ def analyze_problem(state: InfraState) -> dict[str, Any]:
 
 def read_infrastructure(state: InfraState) -> dict[str, Any]:
     """
-    Collect infrastructure observations.
+    Collect Kubernetes infrastructure observations using the existing
+    read-only Kubernetes tool layer.
 
-    Kubernetes tool integration will be connected here.
-
-    IMPORTANT:
-    This node currently does not execute kubectl commands or modify
-    Kubernetes resources.
-
-    It is READ-ONLY.
+    No Kubernetes resource is modified.
     """
 
     resource_type = state.get("resource_type")
     namespace = state.get("namespace")
     resource_name = state.get("resource_name")
+    user_request = state.get("user_request", "").strip()
+
+    # Preserve safe behavior when this node is called directly without
+    # a troubleshooting request.
+    if not user_request:
+        return {
+            "observations": [
+                {
+                    "status": "pending",
+                    "resource_type": resource_type,
+                    "resource_name": resource_name,
+                    "namespace": namespace,
+                    "message": (
+                        "A user troubleshooting request is required "
+                        "before Kubernetes investigation can run."
+                    ),
+                }
+            ],
+            "pods": [],
+            "events": [],
+            "logs": [],
+            "deployments": [],
+            "services": [],
+            "gateways": [],
+            "error": None,
+        }
 
     observations: list[dict[str, Any]] = []
+    pods: list[dict[str, Any]] = []
+    events: list[dict[str, Any]] = []
+    logs: list[str] = []
+    deployments: list[dict[str, Any]] = []
+    services: list[dict[str, Any]] = []
+    gateways: list[dict[str, Any]] = []
 
-    # ------------------------------------------------------------------------
-    # Current phase:
-    # Do not call Kubernetes yet.
-    # ------------------------------------------------------------------------
-
-    observations.append(
-        {
-            "status": "pending",
+    def add_observation(
+        tool: str,
+        result: dict[str, Any],
+        data_key: str | None = None,
+    ) -> None:
+        observation: dict[str, Any] = {
+            "tool": tool,
+            "status": (
+                "success"
+                if result.get("success")
+                else "error"
+            ),
             "resource_type": resource_type,
             "resource_name": resource_name,
             "namespace": namespace,
-            "message": (
-                "Kubernetes read-only tools will be connected "
-                "in the Kubernetes integration phase."
-            ),
         }
-    )
+
+        if result.get("success"):
+            observation["data"] = (
+                result.get(data_key)
+                if data_key
+                else result
+            )
+        else:
+            observation["error"] = result.get(
+                "error",
+                "Infrastructure tool execution failed.",
+            )
+
+        observations.append(observation)
+
+    # ------------------------------------------------------------------
+    # Pod investigation
+    # ------------------------------------------------------------------
+
+    if resource_type == "pod" and namespace and resource_name:
+        pod_result = get_pod(
+            namespace=namespace,
+            pod_name=resource_name,
+        )
+        add_observation(
+            "get_pod",
+            pod_result,
+            "pod",
+        )
+
+        logs_result = get_pod_logs(
+            namespace=namespace,
+            pod_name=resource_name,
+        )
+        add_observation(
+            "get_pod_logs",
+            logs_result,
+            "logs",
+        )
+
+        if logs_result.get("success") and logs_result.get("logs"):
+            logs.append(logs_result["logs"])
+
+        events_result = get_pod_events(
+            namespace=namespace,
+            pod_name=resource_name,
+        )
+        add_observation(
+            "get_pod_events",
+            events_result,
+            "events",
+        )
+
+        if events_result.get("success"):
+            events.extend(
+                events_result.get("events", [])
+            )
+
+        if pod_result.get("success"):
+            pods.append(
+                pod_result.get("pod", {})
+            )
+
+    # ------------------------------------------------------------------
+    # Deployment investigation
+    # ------------------------------------------------------------------
+
+    elif (
+        resource_type == "deployment"
+        and namespace
+        and resource_name
+    ):
+        deployment_result = get_deployment(
+            namespace=namespace,
+            deployment_name=resource_name,
+        )
+
+        add_observation(
+            "get_deployment",
+            deployment_result,
+            "deployment",
+        )
+
+        if deployment_result.get("success"):
+            deployments.append(
+                deployment_result.get(
+                    "deployment",
+                    {},
+                )
+            )
+
+    # ------------------------------------------------------------------
+    # Service investigation
+    # ------------------------------------------------------------------
+
+    elif (
+        resource_type == "service"
+        and namespace
+        and resource_name
+    ):
+        service_result = get_service(
+            namespace=namespace,
+            service_name=resource_name,
+        )
+
+        add_observation(
+            "get_service",
+            service_result,
+            "service",
+        )
+
+        if service_result.get("success"):
+            services.append(
+                service_result.get(
+                    "service",
+                    {},
+                )
+            )
+
+        endpoints_result = get_endpoints(
+            namespace=namespace,
+            service_name=resource_name,
+        )
+
+        add_observation(
+            "get_endpoints",
+            endpoints_result,
+        )
+
+    # ------------------------------------------------------------------
+    # Gateway investigation
+    # ------------------------------------------------------------------
+
+    elif (
+        resource_type == "gateway"
+        and namespace
+        and resource_name
+    ):
+        gateway_result = inspect_gateway(
+            namespace=namespace,
+            gateway_name=resource_name,
+        )
+
+        add_observation(
+            "inspect_gateway",
+            gateway_result,
+            "gateway",
+        )
+
+        if gateway_result.get("success"):
+            gateways.append(
+                gateway_result.get(
+                    "gateway",
+                    {},
+                )
+            )
+
+        connectivity_result = (
+            investigate_gateway_connectivity(
+                namespace=namespace,
+                gateway_name=resource_name,
+            )
+        )
+
+        add_observation(
+            "investigate_gateway_connectivity",
+            connectivity_result,
+        )
+
+    # ------------------------------------------------------------------
+    # HTTPRoute investigation
+    # ------------------------------------------------------------------
+
+    elif resource_type == "httproute" and namespace:
+        httproute_result = list_httproutes(
+            namespace=namespace,
+        )
+
+        add_observation(
+            "list_httproutes",
+            httproute_result,
+            "httproutes",
+        )
+
+    # ------------------------------------------------------------------
+    # StatefulSet investigation
+    # ------------------------------------------------------------------
+
+    elif resource_type == "statefulset" and namespace:
+        statefulset_result = get_statefulsets(
+            namespace=namespace,
+        )
+
+        add_observation(
+            "get_statefulsets",
+            statefulset_result,
+            "statefulsets",
+        )
+
+    # ------------------------------------------------------------------
+    # PVC investigation
+    # ------------------------------------------------------------------
+
+    elif resource_type == "pvc" and namespace:
+        pvc_result = get_pvcs(
+            namespace=namespace,
+        )
+
+        add_observation(
+            "get_pvcs",
+            pvc_result,
+            "pvcs",
+        )
+
+    # ------------------------------------------------------------------
+    # Generic read-only overview
+    # ------------------------------------------------------------------
+
+    else:
+        pods_result = get_pods(
+            namespace=namespace,
+        )
+
+        add_observation(
+            "get_pods",
+            pods_result,
+            "pods",
+        )
+
+        if pods_result.get("success"):
+            pods.extend(
+                pods_result.get(
+                    "pods",
+                    [],
+                )
+            )
+
+        deployments_result = get_deployments(
+            namespace=namespace,
+        )
+
+        add_observation(
+            "get_deployments",
+            deployments_result,
+            "deployments",
+        )
+
+        if deployments_result.get("success"):
+            deployments.extend(
+                deployments_result.get(
+                    "deployments",
+                    [],
+                )
+            )
+
+        services_result = get_services(
+            namespace=namespace,
+        )
+
+        add_observation(
+            "get_services",
+            services_result,
+            "services",
+        )
+
+        if services_result.get("success"):
+            services.extend(
+                services_result.get(
+                    "services",
+                    [],
+                )
+            )
+
+    if not observations:
+        observations.append(
+            {
+                "status": "pending",
+                "resource_type": resource_type,
+                "resource_name": resource_name,
+                "namespace": namespace,
+                "message": (
+                    "No Kubernetes investigation was executed "
+                    "because the requested resource context "
+                    "was incomplete."
+                ),
+            }
+        )
 
     return {
         "observations": observations,
-        "pods": [],
-        "events": [],
-        "logs": [],
-        "deployments": [],
-        "services": [],
-        "gateways": [],
+        "pods": pods,
+        "events": events,
+        "logs": logs,
+        "deployments": deployments,
+        "services": services,
+        "gateways": gateways,
         "error": None,
     }
-
 
 # ============================================================================
 # DIAGNOSE NODE
