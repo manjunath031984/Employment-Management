@@ -1,15 +1,16 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: employment-management
+  name: {{ include "employment-management.fullname" . }}
+  namespace: {{ .Release.Namespace }}
   labels:
-    app: employment-management
+    {{- include "employment-management.labels" . | nindent 4 }}
 spec:
-  type: ClusterIP
+  type: {{ .Values.app.service.type }}
   selector:
-    app: employment-management
+    {{- include "employment-management.selectorLabels" . | nindent 4 }}
   ports:
     - name: http
-      port: 8080
+      port: {{ .Values.app.service.port }}
       targetPort: 8080
       protocol: TCP
