@@ -19,7 +19,7 @@ jobs:
 
   build-test:
     name: Build and Test
-    runs-on: Ubuntu 26.04 LTS Minimal
+    runs-on: Ubuntu 26.04 LTS
 
     steps:
 
@@ -47,7 +47,7 @@ jobs:
 
   docker-build:
     name: Docker Build
-    runs-on: Ubuntu 26.04 LTS Minimal
+    runs-on: Ubuntu 26.04 LTS
 
     needs: build-test
 
