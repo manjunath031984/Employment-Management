@@ -1,10 +1,12 @@
 apiVersion: apps/v1
 kind: Deployment
+
 metadata:
   name: {{ include "employment-management.fullname" . }}
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "employment-management.labels" . | nindent 4 }}
+
 spec:
   replicas: {{ .Values.app.replicaCount }}
 
@@ -24,6 +26,9 @@ spec:
         {{- include "employment-management.selectorLabels" . | nindent 8 }}
 
     spec:
+      # Use the Helm-managed ServiceAccount
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+
       securityContext:
         runAsNonRoot: true
         runAsUser: 100
@@ -34,6 +39,7 @@ spec:
 
       containers:
         - name: employment-management
+
           image: "{{ .Values.app.image.repository }}:{{ .Values.app.image.tag }}"
           imagePullPolicy: {{ .Values.app.image.pullPolicy }}
 

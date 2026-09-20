@@ -1,4 +1,14 @@
 ---
+# Source: employment-management/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: employment-management-sa
+  namespace: stateful-demo
+  labels:
+    app.kubernetes.io/name: employment-management
+    app.kubernetes.io/managed-by: Helm
+---
 # Source: employment-management/templates/postgres-secret.yaml
 apiVersion: v1
 kind: Secret
@@ -41,6 +51,55 @@ metadata:
     app.kubernetes.io/managed-by: Helm
 data:
   POSTGRES_DB: "employee-managementdb"
+---
+# Source: employment-management/templates/role.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: employment-management-role
+  namespace: stateful-demo
+  labels:
+    app.kubernetes.io/name: employment-management
+    app.kubernetes.io/managed-by: Helm
+rules:
+  - apiGroups: [""]
+    resources:
+      - pods
+      - services
+      - configmaps
+      - secrets
+    verbs:
+      - get
+      - list
+      - watch
+
+  - apiGroups: ["apps"]
+    resources:
+      - deployments
+      - statefulsets
+      - replicasets
+    verbs:
+      - get
+      - list
+      - watch
+---
+# Source: employment-management/templates/rolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: employment-management-rolebinding
+  namespace: stateful-demo
+  labels:
+    app.kubernetes.io/name: employment-management
+    app.kubernetes.io/managed-by: Helm
+subjects:
+  - kind: ServiceAccount
+    name: employment-management-sa
+    namespace: stateful-demo
+roleRef:
+  kind: Role
+  name: employment-management-role
+  apiGroup: rbac.authorization.k8s.io
 ---
 # Source: employment-management/templates/headless-service.yaml
 apiVersion: v1
@@ -90,6 +149,7 @@ spec:
 # Source: employment-management/templates/deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
+
 metadata:
   name: employment-management-employment-management
   namespace: stateful-demo
@@ -99,6 +159,7 @@ metadata:
     app.kubernetes.io/instance: employment-management
     app.kubernetes.io/version: "3.0.0"
     app.kubernetes.io/managed-by: Helm
+
 spec:
   replicas: 1
 
@@ -120,6 +181,9 @@ spec:
         app.kubernetes.io/instance: employment-management
 
     spec:
+      # Use the Helm-managed ServiceAccount
+      serviceAccountName: employment-management-sa
+
       securityContext:
         runAsNonRoot: true
         runAsUser: 100
@@ -130,7 +194,8 @@ spec:
 
       containers:
         - name: employment-management
-          image: "us-central1-docker.pkg.dev/gcp-dev-july-2026/employment-management/employment-management:3.0.0"
+
+          image: "us-central1-docker.pkg.dev/gcp-dev-july-2026/employment-management/employment-management:1.0.0"
           imagePullPolicy: IfNotPresent
 
           ports:
@@ -217,6 +282,7 @@ metadata:
     app.kubernetes.io/instance: employment-management
     app.kubernetes.io/version: "3.0.0"
     app.kubernetes.io/managed-by: Helm
+
 spec:
   serviceName: employment-management-postgres
   replicas: 1
@@ -274,7 +340,7 @@ spec:
 
           volumeMounts:
             - name: postgres-data
-              mountPath: /var/lib/postgresql/data
+              mountPath: /var/lib/postgresql
 
   volumeClaimTemplates:
     - metadata:
@@ -282,7 +348,9 @@ spec:
       spec:
         accessModes:
           - ReadWriteOnce
+
         storageClassName: standard-rwo
+
         resources:
           requests:
             storage: 5Gi
