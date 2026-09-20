@@ -63,5 +63,6 @@ argocd:
   rbac:
     create: true
     serviceAccountName: argocd-deployer-sa
+    controllerServiceAccountName: argocd-application-controller
     clusterRoleName: employment-management-argocd-deployer
     clusterRoleBindingName: employment-management-argocd-deployer

@@ -1,0 +1,16 @@
+{{- if .Values.argocd.rbac.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: employment-management-argocd-controller-impersonator
+  labels:
+    {{- include "employment-management.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Values.argocd.rbac.controllerServiceAccountName }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: ClusterRole
+  name: employment-management-argocd-controller-impersonator
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}
