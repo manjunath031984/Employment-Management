@@ -58,3 +58,11 @@ gateway:
 
 rbac:
   create: true
+
+argocd:
+  rbac:
+    create: true
+    namespace: argocd
+    serviceAccountName: argocd-deployer-sa
+    clusterRoleName: employment-management-argocd-deployer
+    clusterRoleBindingName: employment-management-argocd-deployer
