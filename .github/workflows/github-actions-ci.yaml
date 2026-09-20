@@ -1,0 +1,63 @@
+name: Employment Management CI
+
+on:
+  push:
+    branches:
+      - feature/github-actions-ci
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  PROJECT_ID: gcp-dev-july-2026
+  REGION: us-central1
+  GAR_REPOSITORY: employment-management
+  IMAGE_NAME: employment-management
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/920822283589/locations/global/workloadIdentityPools/github-actions-pool/providers/github-provider
+          service_account: infra-admin@gcp-dev-july-2026.iam.gserviceaccount.com
+
+      - name: Set up Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker authentication
+        run: |
+          gcloud auth configure-docker \
+            ${REGION}-docker.pkg.dev \
+            --quiet
+
+      - name: Calculate image tag
+        run: |
+          PATCH=$((GITHUB_RUN_NUMBER - 1))
+          echo "IMAGE_TAG=1.0.${PATCH}" >> "$GITHUB_ENV"
+          echo "Image tag: 1.0.${PATCH}"
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t ${REGION}-docker.pkg.dev/${PROJECT_ID}/${GAR_REPOSITORY}/${IMAGE_NAME}:${IMAGE_TAG} \
+            .
+
+      - name: Push Docker image
+        run: |
+          docker push \
+            ${REGION}-docker.pkg.dev/${PROJECT_ID}/${GAR_REPOSITORY}/${IMAGE_NAME}:${IMAGE_TAG}
+
+      - name: Verify image
+        run: |
+          gcloud artifacts docker images list \
+            ${REGION}-docker.pkg.dev/${PROJECT_ID}/${GAR_REPOSITORY}/${IMAGE_NAME} \
+            --include-tags
