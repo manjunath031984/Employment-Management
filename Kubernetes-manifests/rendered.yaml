@@ -1,16 +1,4 @@
 ---
-# Source: employment-management/templates/namespace.yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: stateful-demo
-  labels:
-    helm.sh/chart: employment-management-0.1.0
-    app.kubernetes.io/name: employment-management
-    app.kubernetes.io/instance: employment-management
-    app.kubernetes.io/version: "3.0.0"
-    app.kubernetes.io/managed-by: Helm
----
 # Source: employment-management/templates/argocd-serviceaccount.yaml
 apiVersion: v1
 kind: ServiceAccount
@@ -76,6 +64,25 @@ metadata:
     app.kubernetes.io/managed-by: Helm
 data:
   POSTGRES_DB: "employee-managementdb"
+---
+# Source: employment-management/templates/argocd-application-controller-impersonator-clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: employment-management-argocd-controller-impersonator
+  labels:
+    helm.sh/chart: employment-management-0.1.0
+    app.kubernetes.io/name: employment-management
+    app.kubernetes.io/instance: employment-management
+    app.kubernetes.io/version: "3.0.0"
+    app.kubernetes.io/managed-by: Helm
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - serviceaccounts
+    verbs:
+      - impersonate
 ---
 # Source: employment-management/templates/argocd-clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -180,6 +187,45 @@ rules:
       - list
       - watch
 ---
+# Source: employment-management/templates/argocd-controller-impersonator-clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: employment-management-argocd-controller-impersonator
+  labels:
+    helm.sh/chart: employment-management-0.1.0
+    app.kubernetes.io/name: employment-management
+    app.kubernetes.io/instance: employment-management
+    app.kubernetes.io/version: "3.0.0"
+    app.kubernetes.io/managed-by: Helm
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - serviceaccounts
+    verbs:
+      - impersonate
+---
+# Source: employment-management/templates/argocd-application-controller-impersonator-clusterrolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: employment-management-argocd-controller-impersonator
+  labels:
+    helm.sh/chart: employment-management-0.1.0
+    app.kubernetes.io/name: employment-management
+    app.kubernetes.io/instance: employment-management
+    app.kubernetes.io/version: "3.0.0"
+    app.kubernetes.io/managed-by: Helm
+subjects:
+  - kind: ServiceAccount
+    name: argocd-application-controller
+    namespace: stateful-demo
+roleRef:
+  kind: ClusterRole
+  name: employment-management-argocd-controller-impersonator
+  apiGroup: rbac.authorization.k8s.io
+---
 # Source: employment-management/templates/argocd-clusterrolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -198,6 +244,26 @@ subjects:
 roleRef:
   kind: ClusterRole
   name: employment-management-argocd-deployer
+  apiGroup: rbac.authorization.k8s.io
+---
+# Source: employment-management/templates/argocd-controller-impersonator-clusterrolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: employment-management-argocd-controller-impersonator
+  labels:
+    helm.sh/chart: employment-management-0.1.0
+    app.kubernetes.io/name: employment-management
+    app.kubernetes.io/instance: employment-management
+    app.kubernetes.io/version: "3.0.0"
+    app.kubernetes.io/managed-by: Helm
+subjects:
+  - kind: ServiceAccount
+    name: argocd-application-controller
+    namespace: stateful-demo
+roleRef:
+  kind: ClusterRole
+  name: employment-management-argocd-controller-impersonator
   apiGroup: rbac.authorization.k8s.io
 ---
 # Source: employment-management/templates/role.yaml
