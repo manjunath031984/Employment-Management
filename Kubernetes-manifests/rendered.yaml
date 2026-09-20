@@ -1,10 +1,22 @@
 ---
+# Source: employment-management/templates/namespace.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: stateful-demo
+  labels:
+    helm.sh/chart: employment-management-0.1.0
+    app.kubernetes.io/name: employment-management
+    app.kubernetes.io/instance: employment-management
+    app.kubernetes.io/version: "3.0.0"
+    app.kubernetes.io/managed-by: Helm
+---
 # Source: employment-management/templates/argocd-serviceaccount.yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: argocd-deployer-sa
-  namespace: argocd
+  namespace: stateful-demo
   labels:
     helm.sh/chart: employment-management-0.1.0
     app.kubernetes.io/name: employment-management
@@ -182,7 +194,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: argocd-deployer-sa
-    namespace: argocd
+    namespace: stateful-demo
 roleRef:
   kind: ClusterRole
   name: employment-management-argocd-deployer
