@@ -1,0 +1,21 @@
+apiVersion: networking.gke.io/v1
+kind: HealthCheckPolicy
+metadata:
+  name: employment-management-healthcheck
+  namespace: {{ .Release.Namespace }}
+spec:
+  default:
+    checkIntervalSec: 15
+    timeoutSec: 5
+    healthyThreshold: 1
+    unhealthyThreshold: 2
+    config:
+      type: HTTP
+      httpHealthCheck:
+        port: 8080
+        portSpecification: USE_FIXED_PORT
+        requestPath: /app/api/employees
+  targetRef:
+    group: ""
+    kind: Service
+    name: {{ include "employment-management.fullname" . }}
