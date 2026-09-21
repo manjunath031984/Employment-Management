@@ -1,4 +1,4 @@
-const API_BASE_URL = "/api/employees";
+const API_BASE_URL = "/app/api/employees";
 
 const form = document.getElementById("employee-form");
 const formTitle = document.getElementById("form-title");
