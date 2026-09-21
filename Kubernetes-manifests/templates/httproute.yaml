@@ -6,6 +6,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "employment-management.labels" . | nindent 4 }}
+
 spec:
   hostnames:
     - {{ .Values.gateway.hostname | quote }}
@@ -17,12 +18,25 @@ spec:
       sectionName: https
 
   rules:
+
+    # Argo CD
     - matches:
         - path:
             type: PathPrefix
-            value: /
+            value: {{ .Values.gateway.argocdPath | quote }}
+
+      backendRefs:
+        - name: argocd-server
+          port: 80
+
+    # Employment Management
+    - matches:
+        - path:
+            type: PathPrefix
+            value: {{ .Values.gateway.appPath | quote }}
 
       backendRefs:
         - name: {{ include "employment-management.fullname" . }}
           port: {{ .Values.app.service.port }}
+
 {{- end }}

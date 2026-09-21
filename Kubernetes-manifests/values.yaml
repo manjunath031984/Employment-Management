@@ -55,14 +55,32 @@ gateway:
   tlsPasswordBase64: cG9zdGdyZXM=
   hostname: cloudaiops.site
   createClass: false
+  appPath: /app
+  argocdPath: /argocd
 
 rbac:
   create: true
 
-argocd:
-  rbac:
-    create: true
-    serviceAccountName: argocd-deployer-sa
-    controllerServiceAccountName: argocd-application-controller
-    clusterRoleName: employment-management-argocd-deployer
-    clusterRoleBindingName: employment-management-argocd-deployer
+# ============================================================
+# Argo CD Helm chart values
+# ============================================================
+
+namespaceOverride: stateful-demo
+
+createClusterRoles: true
+
+controller:
+  serviceAccount:
+    create: false
+    name: employment-management-sa
+
+configs:
+  cm:
+    url: https://cloudaiops.site/argocd
+    application.sync.impersonation.enabled: "false"
+    application.sync.impersonation.enforced: "false"
+
+  params:
+    server.insecure: "true"
+    server.basehref: /argocd
+    server.rootpath: /argocd
