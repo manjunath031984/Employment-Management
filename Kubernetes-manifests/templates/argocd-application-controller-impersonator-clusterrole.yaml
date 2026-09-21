@@ -10,6 +10,8 @@ rules:
       - ""
     resources:
       - serviceaccounts
+    resourceNames:
+      - {{ .Values.argocd.rbac.serviceAccountName }}
     verbs:
       - impersonate
 {{- end }}
