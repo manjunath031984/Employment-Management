@@ -3,7 +3,7 @@ app:
 
   image:
     repository: us-central1-docker.pkg.dev/gcp-dev-july-2026/employment-management/employment-management
-    tag: "1.0.9"
+    tag: "1.0.11"
     pullPolicy: IfNotPresent
 
   service:
