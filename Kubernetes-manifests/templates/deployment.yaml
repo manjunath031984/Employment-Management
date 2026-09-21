@@ -85,7 +85,7 @@ spec:
 
           startupProbe:
             httpGet:
-              path: /api/employees
+              path: /app/api/employees
               port: 8080
             initialDelaySeconds: 20
             periodSeconds: 10
@@ -94,7 +94,7 @@ spec:
 
           readinessProbe:
             httpGet:
-              path: /api/employees
+              path: /app/api/employees
               port: 8080
             initialDelaySeconds: 20
             periodSeconds: 10
@@ -103,7 +103,7 @@ spec:
 
           livenessProbe:
             httpGet:
-              path: /api/employees
+              path: /app/api/employees
               port: 8080
             initialDelaySeconds: 60
             periodSeconds: 20
