@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
 
 env:
@@ -61,3 +61,25 @@ jobs:
           gcloud artifacts docker images list \
             ${REGION}-docker.pkg.dev/${PROJECT_ID}/${GAR_REPOSITORY}/${IMAGE_NAME} \
             --include-tags
+
+      - name: Update Helm image tag
+        run: |
+          sed -i -E "0,/^    tag: \"[0-9]+\.[0-9]+\.[0-9]+\"$/s//    tag: \"${IMAGE_TAG}\"/" Kubernetes-manifests/values.yaml
+
+          echo "Updated Helm image tag:"
+          grep -n -A2 "^  image:" Kubernetes-manifests/values.yaml
+
+      - name: Commit and push GitOps change
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add Kubernetes-manifests/values.yaml
+
+          if git diff --cached --quiet; then
+            echo "No GitOps change detected."
+            exit 0
+          fi
+
+          git commit -m "chore: update image tag to ${IMAGE_TAG} [skip ci]"
+          git push origin "${GITHUB_REF_NAME}"
