@@ -1,9 +1,8 @@
 pipeline {
     agent any
 
-    options {
-        timestamps()
-        disableConcurrentBuilds()
+    triggers {
+        githubPush()
     }
 
     parameters {
@@ -12,20 +11,9 @@ pipeline {
             name: 'BRANCH',
             choices: [
                 'feature/jenkins-argocd-cicd',
-                'main',
-                'develop'
+                'main'
             ],
-            description: 'Select the Git branch to build'
-        )
-
-        choice(
-            name: 'IMAGE_TAG',
-            choices: [
-                '1.0.0',
-                '1.0.1',
-                '1.0.2'
-            ],
-            description: 'Select the Docker image version/tag'
+            description: 'Select the GitHub branch to build'
         )
 
         choice(
@@ -38,6 +26,16 @@ pipeline {
             description: 'Select the target environment'
         )
 
+        choice(
+            name: 'IMAGE_TAG',
+            choices: [
+                '1.0.0',
+                '1.0.1',
+                '1.0.2'
+            ],
+            description: 'Select the Docker image version'
+        )
+
         booleanParam(
             name: 'RUN_TESTS',
             defaultValue: true,
@@ -47,30 +45,89 @@ pipeline {
         booleanParam(
             name: 'PUSH_IMAGE',
             defaultValue: true,
-            description: 'Push the Docker image to Docker Hub'
+            description: 'Push Docker image to Docker Hub'
         )
     }
 
     environment {
+
+        // GitHub
         GITHUB_REPO = 'https://github.com/manjunath031984/Employment-Management.git'
+        GITHUB_CREDENTIALS = 'github-pat'
 
+        // Docker Hub
         DOCKER_IMAGE = 'vannalmanju/employment-management'
-
+        DOCKER_CREDENTIALS = 'dockerhub-pat'
         DOCKER_REGISTRY = 'docker.io'
+
+        // Application
+        APP_NAME = 'employment-management'
     }
 
     stages {
 
-        // =========================================================
-        // 1. CHECKOUT GIT REPOSITORY
-        // =========================================================
-
-        stage('Checkout Git Repository') {
+        /*
+         * ==========================================
+         * ENVIRONMENT CHECK
+         * ==========================================
+         */
+        stage('Environment Check') {
             steps {
 
-                echo '=========================================='
-                echo 'CHECKOUT GIT REPOSITORY'
-                echo '=========================================='
+                echo '''
+==========================================
+        EMPLOYMENT MANAGEMENT CI/CD
+==========================================
+'''
+
+                echo "Build Number : ${env.BUILD_NUMBER}"
+                echo "Branch       : ${params.BRANCH}"
+                echo "Environment  : ${params.ENVIRONMENT}"
+                echo "Image Tag    : ${params.IMAGE_TAG}"
+                echo "Run Tests    : ${params.RUN_TESTS}"
+                echo "Push Image   : ${params.PUSH_IMAGE}"
+                echo "Docker Image : ${env.DOCKER_IMAGE}:${params.IMAGE_TAG}"
+
+                sh '''
+                    echo "=========================================="
+                    echo "Agent Information"
+                    echo "=========================================="
+
+                    echo "Hostname:"
+                    hostname
+
+                    echo ""
+                    echo "Java Version:"
+                    java -version || true
+
+                    echo ""
+                    echo "Maven Version:"
+                    mvn -version || true
+
+                    echo ""
+                    echo "Docker Version:"
+                    docker --version || true
+
+                    echo ""
+                    echo "Git Version:"
+                    git --version || true
+                '''
+            }
+        }
+
+
+        /*
+         * ==========================================
+         * CHECKOUT GIT REPOSITORY
+         * ==========================================
+         */
+        stage('Checkout Git Repository') {
+
+            steps {
+
+                echo "=========================================="
+                echo "CHECKOUT GIT REPOSITORY"
+                echo "=========================================="
 
                 echo "Repository : ${env.GITHUB_REPO}"
                 echo "Branch     : ${params.BRANCH}"
@@ -87,59 +144,69 @@ pipeline {
                     userRemoteConfigs: [
                         [
                             url: env.GITHUB_REPO,
-                            credentialsId: 'github-pat'
+                            credentialsId: env.GITHUB_CREDENTIALS
+                        ]
+                    ],
+
+                    extensions: [
+                        [
+                            $class: 'CleanBeforeCheckout'
                         ]
                     ]
-                ])
+                ]
 
                 sh '''
-                    echo "Git checkout completed successfully"
-                    echo ""
-                    echo "Current branch:"
-                    git branch --show-current
-                    echo ""
-                    echo "Latest commit:"
+                    echo "=========================================="
+                    echo "Git Information"
+                    echo "=========================================="
+
+                    git branch --show-current || true
                     git log -1 --oneline
+                    git status --short
                 '''
             }
         }
 
 
-        // =========================================================
-        // 2. MAVEN BUILD
-        // =========================================================
+        /*
+         * ==========================================
+         * MAVEN BUILD
+         * ==========================================
+         */
+        stage('Maven Build') {
 
-        stage('Build Application') {
             steps {
 
-                echo '=========================================='
-                echo 'MAVEN BUILD'
-                echo '=========================================='
+                echo "=========================================="
+                echo "MAVEN BUILD"
+                echo "=========================================="
 
                 sh '''
-                    echo "Java version:"
-                    java -version
+                    echo "Building Spring Boot application..."
+
+                    if [ -f "./mvnw" ]; then
+                        chmod +x ./mvnw
+                        ./mvnw clean package -DskipTests
+                    else
+                        mvn clean package -DskipTests
+                    fi
 
                     echo ""
-                    echo "Maven version:"
-                    mvn -version
+                    echo "Maven build completed successfully."
 
                     echo ""
-                    echo "Starting Maven build..."
-
-                    mvn clean package -DskipTests
-
-                    echo ""
-                    echo "Maven build completed successfully"
+                    echo "Generated artifacts:"
+                    find target -maxdepth 1 -type f 2>/dev/null || true
                 '''
             }
         }
 
 
-        // =========================================================
-        // 3. MAVEN TEST
-        // =========================================================
-
+        /*
+         * ==========================================
+         * MAVEN TEST
+         * ==========================================
+         */
         stage('Maven Test') {
 
             when {
@@ -150,63 +217,121 @@ pipeline {
 
             steps {
 
-                echo '=========================================='
-                echo 'MAVEN TEST'
-                echo '=========================================='
+                echo "=========================================="
+                echo "MAVEN TEST"
+                echo "=========================================="
 
                 sh '''
                     echo "Running Maven tests..."
 
-                    mvn test
+                    if [ -f "./mvnw" ]; then
+                        ./mvnw test
+                    else
+                        mvn test
+                    fi
 
                     echo ""
-                    echo "All Maven tests completed successfully"
+                    echo "All Maven tests completed successfully."
                 '''
             }
         }
 
 
-        // =========================================================
-        // 4. DOCKER BUILD
-        // =========================================================
-
+        /*
+         * ==========================================
+         * DOCKER BUILD
+         * ==========================================
+         */
         stage('Docker Build') {
+
             steps {
 
-                echo '=========================================='
-                echo 'DOCKER BUILD'
-                echo '=========================================='
+                script {
 
-                echo "Docker Image : ${env.DOCKER_IMAGE}"
-                echo "Image Tag    : ${params.IMAGE_TAG}"
+                    def imageTag = params.IMAGE_TAG
 
-                sh '''
-                    echo "Docker version:"
-                    docker --version
+                    if (!imageTag?.trim()) {
+                        error("Docker image tag is empty. Please select a valid IMAGE_TAG.")
+                    }
 
-                    echo ""
-                    echo "Building Docker image..."
+                    def fullImageName =
+                        "${env.DOCKER_IMAGE}:${imageTag}"
 
-                    docker build \
-                        -t ${DOCKER_IMAGE}:${IMAGE_TAG} \
-                        .
+                    echo "=========================================="
+                    echo "DOCKER BUILD"
+                    echo "=========================================="
 
-                    echo ""
-                    echo "Docker image built successfully"
+                    echo "Docker Image : ${env.DOCKER_IMAGE}"
+                    echo "Image Tag    : ${imageTag}"
+                    echo "Full Image   : ${fullImageName}"
 
-                    echo ""
-                    echo "Created image:"
-                    docker images ${DOCKER_IMAGE}
-                '''
+                    sh """
+                        echo "Docker version:"
+                        docker --version
+
+                        echo ""
+                        echo "Building Docker image..."
+
+                        docker build \\
+                            -t "${fullImageName}" \\
+                            .
+
+                        echo ""
+                        echo "Docker image built successfully."
+
+                        echo ""
+                        echo "Docker image:"
+                        docker images "${env.DOCKER_IMAGE}" --format "table {{.Repository}}\\t{{.Tag}}\\t{{.ID}}\\t{{.Size}}"
+                    """
+                }
             }
         }
 
 
-        // =========================================================
-        // 5. MANUAL APPROVAL
-        // =========================================================
+        /*
+         * ==========================================
+         * DOCKER IMAGE VALIDATION
+         * ==========================================
+         */
+        stage('Docker Image Validation') {
 
-        stage('Input Approval') {
+            steps {
+
+                script {
+
+                    def fullImageName =
+                        "${env.DOCKER_IMAGE}:${params.IMAGE_TAG}"
+
+                    echo "=========================================="
+                    echo "DOCKER IMAGE VALIDATION"
+                    echo "=========================================="
+
+                    sh """
+                        echo "Checking image: ${fullImageName}"
+
+                        docker image inspect "${fullImageName}" > /dev/null
+
+                        echo ""
+                        echo "Image exists successfully."
+
+                        echo ""
+                        echo "Image details:"
+                        docker image inspect "${fullImageName}" \\
+                            --format='Repository: {{index .RepoTags 0}}
+Image ID: {{.Id}}
+Size: {{.Size}}'
+                    """
+                }
+            }
+        }
+
+
+        /*
+         * ==========================================
+         * INPUT / MANUAL APPROVAL
+         * ==========================================
+         */
+        stage('Approval for Docker Hub Push') {
 
             when {
                 expression {
@@ -216,44 +341,83 @@ pipeline {
 
             steps {
 
-                echo '=========================================='
-                echo 'WAITING FOR MANUAL APPROVAL'
-                echo '=========================================='
-
                 script {
 
-                    def approval = input(
+                    def fullImageName =
+                        "${env.DOCKER_IMAGE}:${params.IMAGE_TAG}"
+
+                    input(
                         message: """
-Do you want to push this Docker image to Docker Hub?
+==========================================
 
-Repository:
-${env.DOCKER_IMAGE}
+Docker image is ready.
 
-Image Tag:
-${params.IMAGE_TAG}
+Image:
+${fullImageName}
 
 Environment:
 ${params.ENVIRONMENT}
 
-Git Branch:
+Branch:
 ${params.BRANCH}
-                        """,
 
-                        ok: 'Approve & Push',
+Do you want to push this image to Docker Hub?
 
-                        submitterParameter: 'APPROVED_BY'
+==========================================
+""",
+                        ok: 'Approve & Push Image'
                     )
-
-                    echo "Deployment approved by: ${approval}"
                 }
             }
         }
 
 
-        // =========================================================
-        // 6. PUSH TO DOCKER HUB
-        // =========================================================
+        /*
+         * ==========================================
+         * DOCKER HUB LOGIN
+         * ==========================================
+         */
+        stage('Docker Hub Login') {
 
+            when {
+                expression {
+                    return params.PUSH_IMAGE
+                }
+            }
+
+            steps {
+
+                echo "=========================================="
+                echo "DOCKER HUB LOGIN"
+                echo "=========================================="
+
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: env.DOCKER_CREDENTIALS,
+                        usernameVariable: 'DOCKER_USERNAME',
+                        passwordVariable: 'DOCKER_PASSWORD'
+                    )
+                ]) {
+
+                    sh '''
+                        echo "$DOCKER_PASSWORD" | \
+                        docker login \
+                        --username "$DOCKER_USERNAME" \
+                        --password-stdin
+
+                        echo ""
+                        echo "Docker Hub authentication successful."
+                    '''
+                }
+            }
+        }
+
+
+        /*
+         * ==========================================
+         * PUSH TO DOCKER HUB
+         * ==========================================
+         */
         stage('Push to Docker Hub') {
 
             when {
@@ -264,97 +428,141 @@ ${params.BRANCH}
 
             steps {
 
-                echo '=========================================='
-                echo 'PUSH IMAGE TO DOCKER HUB'
-                echo '=========================================='
+                script {
 
-                withCredentials([
-                    usernamePassword(
-                        credentialsId: 'dockerhub-pat',
-                        usernameVariable: 'DOCKER_USERNAME',
-                        passwordVariable: 'DOCKER_PASSWORD'
-                    )
-                ]) {
+                    def fullImageName =
+                        "${env.DOCKER_IMAGE}:${params.IMAGE_TAG}"
 
-                    sh '''
-                        echo "Logging into Docker Hub..."
+                    echo "=========================================="
+                    echo "PUSH TO DOCKER HUB"
+                    echo "=========================================="
 
-                        echo "$DOCKER_PASSWORD" | docker login \
-                            --username "$DOCKER_USERNAME" \
-                            --password-stdin
+                    echo "Pushing:"
+                    echo "${fullImageName}"
+
+                    sh """
+                        docker push "${fullImageName}"
 
                         echo ""
-                        echo "Docker login successful"
+                        echo "Docker image pushed successfully."
 
                         echo ""
-                        echo "Pushing image..."
-
-                        docker push ${DOCKER_IMAGE}:${IMAGE_TAG}
-
-                        echo ""
-                        echo "Docker image pushed successfully"
-
-                        echo ""
-                        echo "Image:"
-                        echo "${DOCKER_IMAGE}:${IMAGE_TAG}"
-
-                        echo ""
-                        echo "Logging out from Docker Hub..."
-
-                        docker logout
-                    '''
+                        echo "Published Image:"
+                        echo "${fullImageName}"
+                    """
                 }
+            }
+        }
+
+
+        /*
+         * ==========================================
+         * DOCKER LOGOUT
+         * ==========================================
+         */
+        stage('Docker Hub Logout') {
+
+            when {
+                expression {
+                    return params.PUSH_IMAGE
+                }
+            }
+
+            steps {
+
+                sh '''
+                    docker logout || true
+
+                    echo "Docker Hub logout completed."
+                '''
+            }
+        }
+
+
+        /*
+         * ==========================================
+         * PIPELINE SUMMARY
+         * ==========================================
+         */
+        stage('Pipeline Summary') {
+
+            steps {
+
+                echo """
+==========================================
+        PIPELINE SUMMARY
+==========================================
+
+Application     : ${env.APP_NAME}
+Git Branch      : ${params.BRANCH}
+Environment     : ${params.ENVIRONMENT}
+
+Docker Image    : ${env.DOCKER_IMAGE}
+Docker Tag      : ${params.IMAGE_TAG}
+
+Full Image      : ${env.DOCKER_IMAGE}:${params.IMAGE_TAG}
+
+Build Number    : ${env.BUILD_NUMBER}
+
+==========================================
+"""
             }
         }
     }
 
 
-    // =============================================================
-    // POST ACTIONS
-    // =============================================================
-
+    /*
+     * ==========================================
+     * POST ACTIONS
+     * ==========================================
+     */
     post {
 
         success {
 
-            echo '''
+            echo """
 ==========================================
-PIPELINE SUCCESSFUL
+        PIPELINE SUCCESSFUL
 ==========================================
-'''
 
-            echo "Git Branch   : ${params.BRANCH}"
-            echo "Environment  : ${params.ENVIRONMENT}"
-            echo "Image        : ${DOCKER_IMAGE}:${params.IMAGE_TAG}"
-            echo "Build Number : ${env.BUILD_NUMBER}"
+Build Number : ${env.BUILD_NUMBER}
+Branch       : ${params.BRANCH}
+Environment  : ${params.ENVIRONMENT}
 
-            echo '''
+Docker Image :
+${env.DOCKER_IMAGE}:${params.IMAGE_TAG}
+
 ==========================================
-'''
+"""
         }
 
         failure {
 
-            echo '''
+            echo """
 ==========================================
-PIPELINE FAILED
+        PIPELINE FAILED
 ==========================================
-'''
 
-            echo "Build Number : ${env.BUILD_NUMBER}"
+Build Number : ${env.BUILD_NUMBER}
+Branch       : ${params.BRANCH}
 
-            echo '''
+Please check the Jenkins console log.
+
 ==========================================
-'''
+"""
         }
 
         aborted {
 
-            echo '''
+            echo """
 ==========================================
-PIPELINE ABORTED
+        PIPELINE ABORTED
 ==========================================
-'''
+
+Build Number : ${env.BUILD_NUMBER}
+
+==========================================
+"""
         }
 
         always {
