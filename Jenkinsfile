@@ -35,28 +35,17 @@ pipeline {
             defaultValue: true,
             description: 'Run Maven tests'
         )
-
-        booleanParam(
-            name: 'VALIDATE_INFRA',
-            defaultValue: false,
-            description: 'Validate infrastructure files under infra/'
-        )
     }
 
     environment {
 
-        // Application directory
-        APP_DIR = "${WORKSPACE}/app"
+        DOCKER_IMAGE = 'vannalmanju/employment-management'
 
-        // Infrastructure directory
-        INFRA_DIR = "${WORKSPACE}/infra"
+        IMAGE_TAG = "${params.IMAGE_TAG}"
 
-        // Docker Hub image
-        DOCKER_IMAGE = "vannalmanju/employment-management"
+        GITHUB_CREDENTIALS = 'github-pat'
 
-        // Jenkins credentials
-        GITHUB_CREDENTIALS = "github-pat"
-        DOCKERHUB_CREDENTIALS = "dockerhub-pat"
+        DOCKERHUB_CREDENTIALS = 'dockerhub-pat'
     }
 
     stages {
@@ -75,19 +64,14 @@ pipeline {
 ==================================================
 '''
 
-                echo "Workspace       : ${WORKSPACE}"
-                echo "Environment     : ${params.ENVIRONMENT}"
-                echo "Git Branch      : ${params.BRANCH}"
-                echo "Docker Image    : ${DOCKER_IMAGE}"
-                echo "Image Tag       : ${params.IMAGE_TAG}"
-                echo "Run Tests       : ${params.RUN_TESTS}"
-                echo "Validate Infra  : ${params.VALIDATE_INFRA}"
+                echo "Workspace    : ${WORKSPACE}"
+                echo "Environment  : ${params.ENVIRONMENT}"
+                echo "Git Branch   : ${params.BRANCH}"
+                echo "Docker Image : ${DOCKER_IMAGE}"
+                echo "Image Tag    : ${IMAGE_TAG}"
+                echo "Run Tests    : ${params.RUN_TESTS}"
 
                 sh '''
-                    echo "Jenkins Workspace:"
-                    pwd
-
-                    echo ""
                     echo "Java:"
                     java -version
 
@@ -146,12 +130,12 @@ pipeline {
                     ls -la
 
                     echo ""
-                    echo "Application directory:"
-                    ls -la "${WORKSPACE}/app" || true
+                    echo "pom.xml:"
+                    ls -lh pom.xml
 
                     echo ""
-                    echo "Infrastructure directory:"
-                    ls -la "${WORKSPACE}/infra" || true
+                    echo "Dockerfile:"
+                    ls -lh Dockerfile
                 '''
             }
         }
@@ -171,29 +155,32 @@ pipeline {
 ==================================================
 '''
 
-                dir("${APP_DIR}") {
+                sh '''
+                    echo "Current directory:"
+                    pwd
 
-                    sh '''
-                        echo "Application directory:"
-                        pwd
+                    echo ""
+                    echo "Checking pom.xml..."
 
-                        echo ""
-                        echo "Application files:"
-                        ls -la
+                    if [ ! -f pom.xml ]; then
+                        echo "ERROR: pom.xml not found."
+                        exit 1
+                    fi
 
-                        echo ""
-                        echo "Starting Maven build..."
+                    echo "pom.xml found."
 
-                        mvn clean package -DskipTests
+                    echo ""
+                    echo "Starting Maven build..."
 
-                        echo ""
-                        echo "Maven build completed successfully."
+                    mvn clean package -DskipTests
 
-                        echo ""
-                        echo "Generated artifacts:"
-                        ls -lh target/ || true
-                    '''
-                }
+                    echo ""
+                    echo "Maven build completed successfully."
+
+                    echo ""
+                    echo "Generated artifacts:"
+                    ls -lh target/ || true
+                '''
             }
         }
 
@@ -219,62 +206,20 @@ pipeline {
 ==================================================
 '''
 
-                dir("${APP_DIR}") {
+                sh '''
+                    echo "Running Maven tests..."
 
-                    sh '''
-                        echo "Running Maven tests..."
+                    mvn test
 
-                        mvn test
-
-                        echo ""
-                        echo "All Maven tests completed successfully."
-                    '''
-                }
+                    echo ""
+                    echo "Maven tests completed successfully."
+                '''
             }
         }
 
 
         // =========================================================
-        // 5. INFRASTRUCTURE VALIDATION
-        // =========================================================
-
-        stage('Infrastructure Validation') {
-
-            when {
-
-                expression {
-                    return params.VALIDATE_INFRA
-                }
-            }
-
-            steps {
-
-                echo '''
-==================================================
-        INFRASTRUCTURE VALIDATION
-==================================================
-'''
-
-                dir("${INFRA_DIR}") {
-
-                    sh '''
-                        echo "Infrastructure directory:"
-                        pwd
-
-                        echo ""
-                        echo "Infrastructure files:"
-                        find . -maxdepth 2 -type f | sort
-
-                        echo ""
-                        echo "Infrastructure validation completed."
-                    '''
-                }
-            }
-        }
-
-
-        // =========================================================
-        // 6. DOCKER BUILD
+        // 5. DOCKER BUILD
         // =========================================================
 
         stage('Docker Build') {
@@ -288,44 +233,43 @@ pipeline {
 '''
 
                 echo "Docker Image : ${DOCKER_IMAGE}"
-                echo "Image Tag    : ${params.IMAGE_TAG}"
-                echo "Docker Context: ${APP_DIR}"
+                echo "Image Tag    : ${IMAGE_TAG}"
+                echo "Build Context: ${WORKSPACE}"
 
-                dir("${APP_DIR}") {
+                sh '''
+                    echo "Current directory:"
+                    pwd
 
-                    sh '''
-                        echo "Current directory:"
-                        pwd
+                    echo ""
+                    echo "Dockerfile:"
+                    ls -lh Dockerfile
 
-                        echo ""
-                        echo "Dockerfile:"
-                        ls -lh Dockerfile
+                    echo ""
+                    echo "Docker version:"
+                    docker --version
 
-                        echo ""
-                        echo "Docker version:"
-                        docker --version
+                    echo ""
+                    echo "Building Docker image..."
 
-                        echo ""
-                        echo "Building Docker image..."
+                    docker build \
+                        -t "${DOCKER_IMAGE}:${IMAGE_TAG}" \
+                        .
 
-                        docker build \
-                            -t "${DOCKER_IMAGE}:${IMAGE_TAG}" \
-                            .
+                    echo ""
+                    echo "Docker image built successfully."
 
-                        echo ""
-                        echo "Docker image built successfully."
+                    echo ""
+                    echo "Created image:"
 
-                        echo ""
-                        echo "Created image:"
-                        docker images "${DOCKER_IMAGE}" --format "table {{.Repository}}\\t{{.Tag}}\\t{{.ID}}\\t{{.Size}}"
-                    '''
-                }
+                    docker images "${DOCKER_IMAGE}" \
+                        --format "table {{.Repository}}\\t{{.Tag}}\\t{{.ID}}\\t{{.Size}}"
+                '''
             }
         }
 
 
         // =========================================================
-        // 7. DOCKER HUB INPUT REQUEST
+        // 6. DOCKER HUB INPUT REQUEST
         // =========================================================
 
         stage('Docker Hub Input Request') {
@@ -341,12 +285,14 @@ Do you want to push this Docker image to Docker Hub?
 Environment : ${params.ENVIRONMENT}
 Branch      : ${params.BRANCH}
 Image       : ${DOCKER_IMAGE}
-Tag         : ${params.IMAGE_TAG}
+Tag         : ${IMAGE_TAG}
 
-Docker Hub repository:
+Docker Hub Repository:
 vannalmanju/employment-management
 """,
+
                         ok: 'Submit',
+
                         parameters: [
                             choice(
                                 name: 'PUSH_IMAGE',
@@ -354,7 +300,7 @@ vannalmanju/employment-management
                                     'YES',
                                     'NO'
                                 ],
-                                description: 'Select YES to push the Docker image to Docker Hub'
+                                description: 'Select YES to push the Docker image'
                             )
                         ]
                     )
@@ -365,13 +311,13 @@ vannalmanju/employment-management
 
                         env.PUSH_IMAGE = 'true'
 
-                        echo "Docker image will be pushed to Docker Hub."
+                        echo "Docker image will be pushed."
 
                     } else {
 
                         env.PUSH_IMAGE = 'false'
 
-                        echo "Docker image will NOT be pushed to Docker Hub."
+                        echo "Docker image will NOT be pushed."
                     }
                 }
             }
@@ -379,7 +325,7 @@ vannalmanju/employment-management
 
 
         // =========================================================
-        // 8. DOCKER HUB LOGIN
+        // 7. DOCKER HUB LOGIN
         // =========================================================
 
         stage('Docker Hub Login') {
@@ -423,7 +369,7 @@ vannalmanju/employment-management
 
 
         // =========================================================
-        // 9. PUSH TO DOCKER HUB
+        // 8. PUSH TO DOCKER HUB
         // =========================================================
 
         stage('Push to Docker Hub') {
@@ -444,18 +390,18 @@ vannalmanju/employment-management
 '''
 
                 sh '''
-                    echo "Preparing Docker image..."
-
-                    echo "Image:"
+                    echo "Docker image:"
                     echo "${DOCKER_IMAGE}:${IMAGE_TAG}"
 
                     echo ""
-                    echo "Pushing image to Docker Hub..."
+                    echo "Pushing Docker image..."
 
                     docker push "${DOCKER_IMAGE}:${IMAGE_TAG}"
 
                     echo ""
-                    echo "Docker image pushed successfully."
+                    echo "=========================================="
+                    echo " Docker image pushed successfully"
+                    echo "=========================================="
 
                     echo ""
                     echo "Docker Hub Image:"
@@ -466,7 +412,7 @@ vannalmanju/employment-management
 
 
         // =========================================================
-        // 10. PIPELINE SUMMARY
+        // 9. PIPELINE SUMMARY
         // =========================================================
 
         stage('Pipeline Summary') {
@@ -479,14 +425,15 @@ vannalmanju/employment-management
 ==================================================
 '''
 
-                echo "Application     : Employee Management"
-                echo "Environment     : ${params.ENVIRONMENT}"
-                echo "Branch          : ${params.BRANCH}"
-                echo "Docker Image    : ${DOCKER_IMAGE}"
-                echo "Image Tag       : ${params.IMAGE_TAG}"
-                echo "Docker Push     : ${env.PUSH_IMAGE ?: 'false'}"
-                echo "Build Number    : ${BUILD_NUMBER}"
-                echo "Build URL       : ${BUILD_URL}"
+                echo "Application  : Employee Management"
+                echo "Environment  : ${params.ENVIRONMENT}"
+                echo "Branch       : ${params.BRANCH}"
+                echo "Workspace    : ${WORKSPACE}"
+                echo "Docker Image : ${DOCKER_IMAGE}"
+                echo "Image Tag    : ${IMAGE_TAG}"
+                echo "Docker Push  : ${env.PUSH_IMAGE ?: 'false'}"
+                echo "Build Number : ${BUILD_NUMBER}"
+                echo "Build URL    : ${BUILD_URL}"
 
                 echo '''
 ==================================================
@@ -515,7 +462,7 @@ vannalmanju/employment-management
             echo "Build Number : ${BUILD_NUMBER}"
             echo "Environment  : ${params.ENVIRONMENT}"
             echo "Branch       : ${params.BRANCH}"
-            echo "Image        : ${DOCKER_IMAGE}:${params.IMAGE_TAG}"
+            echo "Image        : ${DOCKER_IMAGE}:${IMAGE_TAG}"
 
             echo '''
 ==================================================
@@ -531,9 +478,10 @@ vannalmanju/employment-management
 '''
 
             echo "Build Number : ${BUILD_NUMBER}"
-            echo "Please check the Jenkins console log."
+            echo "Branch       : ${params.BRANCH}"
 
             echo '''
+Please check the Jenkins console output.
 ==================================================
 '''
         }
