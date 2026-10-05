@@ -1,0 +1,6 @@
+project_id = "gcp-dev-july-2026"
+region = "us-central1"
+cluster_name = "employment-mgmt-gke"
+network = "default"
+subnetwork = "default"
+service_account = "infra-admin"
