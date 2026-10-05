@@ -25,12 +25,12 @@ module "eks" {
       max_size     = var.max_nodes
       desired_size = var.desired_nodes
 
-      disk_size = var.node_disk_size
+      disk_size  = var.node_disk_size
       subnet_ids = var.subnet_ids
 
-      # EKS managed-node-group AMI.
-      # This is intentionally not using the previously discussed EC2 AMI ID.
-      ami_type = "AL2023_x86_64_STANDARD"
+      # Ubuntu 26.04 custom AMI
+      use_custom_launch_template = true
+      ami_id                     = "ami-0b6d9d3d33ba97d99"
 
       labels = {
         environment = var.environment

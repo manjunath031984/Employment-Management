@@ -1,5 +1,5 @@
-aws_region        = "us-east-1"
-environment       = "dev"
+aws_region  = "us-east-1"
+environment = "dev"
 
 # Change this if your AWS account has a different eligible instance type.
 node_instance_types = ["t3.medium"]

@@ -1,29 +1,26 @@
 output "cluster_name" {
+  description = "EKS cluster name"
   value       = module.eks.cluster_name
-  description = "EKS cluster name."
 }
 
 output "cluster_endpoint" {
+  description = "EKS cluster API endpoint"
   value       = module.eks.cluster_endpoint
-  description = "EKS API endpoint."
+  sensitive   = true
 }
 
-output "cluster_region" {
-  value       = var.aws_region
-  description = "AWS region."
+output "cluster_certificate_authority_data" {
+  description = "EKS cluster certificate authority data"
+  value       = module.eks.cluster_certificate_authority_data
+  sensitive   = true
 }
 
-output "default_vpc_id" {
-  value       = data.aws_vpc.default.id
-  description = "Existing Default VPC ID."
+output "cluster_arn" {
+  description = "EKS cluster ARN"
+  value       = module.eks.cluster_arn
 }
 
-output "eks_subnet_ids" {
-  value       = local.eks_subnet_ids
-  description = "Default VPC subnet IDs used by EKS."
-}
-
-output "node_group_arn" {
-  value       = try(module.eks.eks_managed_node_groups["default"].node_group_arn, null)
-  description = "EKS managed node group ARN."
+output "node_group_arns" {
+  description = "ARNs of the EKS managed node groups"
+  value       = module.eks.node_group_arns
 }

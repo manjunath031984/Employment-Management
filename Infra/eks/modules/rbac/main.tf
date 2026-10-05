@@ -1,4 +1,4 @@
-resource "kubernetes_namespace" "employment_management" {
+resource "kubernetes_namespace_v1" "employment_management" {
   metadata {
     name = var.namespace
     labels = {
@@ -9,10 +9,10 @@ resource "kubernetes_namespace" "employment_management" {
   }
 }
 
-resource "kubernetes_service_account" "employment_management" {
+resource "kubernetes_service_account_v1" "employment_management" {
   metadata {
     name      = var.service_account_name
-    namespace = kubernetes_namespace.employment_management.metadata[0].name
+    namespace = kubernetes_namespace_v1.employment_management.metadata[0].name
     labels = {
       app        = "employment-management"
       managed-by = "terraform"
@@ -20,10 +20,10 @@ resource "kubernetes_service_account" "employment_management" {
   }
 }
 
-resource "kubernetes_role" "employment_management_read" {
+resource "kubernetes_role_v1" "employment_management_read" {
   metadata {
     name      = "employment-management-read"
-    namespace = kubernetes_namespace.employment_management.metadata[0].name
+    namespace = kubernetes_namespace_v1.employment_management.metadata[0].name
   }
 
   rule {
@@ -39,21 +39,21 @@ resource "kubernetes_role" "employment_management_read" {
   }
 }
 
-resource "kubernetes_role_binding" "employment_management_read" {
+resource "kubernetes_role_binding_v1" "employment_management_read" {
   metadata {
     name      = "employment-management-read"
-    namespace = kubernetes_namespace.employment_management.metadata[0].name
+    namespace = kubernetes_namespace_v1.employment_management.metadata[0].name
   }
 
   role_ref {
     api_group = "rbac.authorization.k8s.io"
     kind      = "Role"
-    name      = kubernetes_role.employment_management_read.metadata[0].name
+    name      = kubernetes_role_v1.employment_management_read.metadata[0].name
   }
 
   subject {
     kind      = "ServiceAccount"
-    name      = kubernetes_service_account.employment_management.metadata[0].name
-    namespace = kubernetes_namespace.employment_management.metadata[0].name
+    name      = kubernetes_service_account_v1.employment_management.metadata[0].name
+    namespace = kubernetes_namespace_v1.employment_management.metadata[0].name
   }
 }
