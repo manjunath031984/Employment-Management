@@ -19,6 +19,8 @@ pipeline {
 
         TERRAFORM_DIR      = 'Infra/eks'
 
+        GODEBUG = 'netdns=go+1'
+
     }
 
 
