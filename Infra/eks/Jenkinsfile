@@ -50,35 +50,40 @@ pipeline {
         // ENVIRONMENT CHECK
         // =========================================================
 
-        stage('Environment Check') {
-            steps {
-                dir("${TERRAFORM_DIR}") {
-                    sh '''
-                        set -e
+stage('Environment Check') {
+    steps {
+        withCredentials([
+            [$class: 'AmazonWebServicesCredentialsBinding',
+             credentialsId: 'aws-jenkins-credentials']
+        ]) {
+            dir("${TERRAFORM_DIR}") {
+                sh '''
+                    set -e
 
-                        echo "======================================"
-                        echo "Environment Information"
-                        echo "======================================"
+                    echo "======================================"
+                    echo "Environment Information"
+                    echo "======================================"
 
-                        echo ""
-                        echo "AWS Region:"
-                        echo "$AWS_DEFAULT_REGION"
+                    echo ""
+                    echo "AWS Region:"
+                    echo "$AWS_DEFAULT_REGION"
 
-                        echo ""
-                        echo "Terraform Version:"
-                        terraform version
+                    echo ""
+                    echo "Terraform Version:"
+                    terraform version
 
-                        echo ""
-                        echo "AWS CLI Version:"
-                        aws --version
+                    echo ""
+                    echo "AWS CLI Version:"
+                    aws --version
 
-                        echo ""
-                        echo "AWS Identity:"
-                        aws sts get-caller-identity
-                    '''
-                }
+                    echo ""
+                    echo "AWS Identity:"
+                    aws sts get-caller-identity
+                '''
             }
         }
+    }
+}
 
         // =========================================================
         // TERRAFORM FORMAT + INIT + VALIDATE
