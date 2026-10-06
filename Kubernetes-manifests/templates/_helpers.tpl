@@ -1,12 +1,11 @@
 {{/*
-Chart name.
+Expand the chart name.
 */}}
 {{- define "employment-management.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
-
 {{/*
-Fully qualified application name.
+Create fully qualified application name.
 */}}
 {{- define "employment-management.fullname" -}}
 {{- if .Values.fullnameOverride }}
@@ -15,14 +14,6 @@ Fully qualified application name.
 {{- printf "%s-%s" .Release.Name (include "employment-management.name" .) | trunc 63 | trimSuffix "-" }}
 {{- end }}
 {{- end }}
-
-{{/*
-PostgreSQL resource name.
-*/}}
-{{- define "employment-management.postgresName" -}}
-{{- printf "%s-postgres" .Release.Name | trunc 63 | trimSuffix "-" }}
-{{- end }}
-
 {{/*
 Common labels.
 */}}
@@ -30,14 +21,23 @@ Common labels.
 helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
 app.kubernetes.io/name: {{ include "employment-management.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
-app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+app.kubernetes.io/version: {{ .Chart.AppVersion }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
-
 {{/*
-Application selector labels.
+Selector labels.
 */}}
 {{- define "employment-management.selectorLabels" -}}
 app.kubernetes.io/name: {{ include "employment-management.name" . }}
-app.kubernetes.io/instance: {{ .Release.Name }}
+pp.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+{{/*
+Service account name.
+*/}}
+{{- define "employment-management.serviceAccountName" -}}
+{{- if .Values.serviceAccount.create }}
+{{- default (include "employment-management.fullname" .) .Values.serviceAccount.name }}
+{{- else }}
+{{- default "default" .Values.serviceAccount.name }}
+{{- end }}
 {{- end }}

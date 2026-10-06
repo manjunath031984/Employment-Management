@@ -1,86 +1,151 @@
-app:
-  replicaCount: 1
-
-  image:
-    repository: us-central1-docker.pkg.dev/gcp-dev-july-2026/employment-management/employment-management
-    tag: "1.0.11"
-    pullPolicy: IfNotPresent
-
-  service:
-    type: ClusterIP
-    port: 8080
-
-  resources:
-    requests:
-      cpu: 250m
-      memory: 256Mi
-    limits:
-      cpu: 500m
-      memory: 512Mi
-
+# ============================================================
+# Helm Chart Naming
+# ============================================================
+nameOverride: ""
+fullnameOverride: ""
+# ============================================================
+# Employment Management Application
+# ============================================================
+replicaCount: 1
+imageRepository: "vannalmanju/employment-management:1.0.0"
+imageTag: "1.0.0"
+imagePullPolicy: IfNotPresent
+# ============================================================
+# Service Account
+# ============================================================
 serviceAccount:
   create: true
-  name: employment-management-sa
+  name: "employment-management"
+# ============================================================
+# Application Service
+# ============================================================
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
 
-postgres:
-  replicaCount: 1
+applicationPort: 8080
+# ============================================================
+# Application Resources
+# ============================================================
+resources:
+  requests:
+    cpu: "250m"
+    memory: "512Mi"
+  limits:
+    cpu: "500m"
+    memory: "1Gi"
+# ============================================================
+# Readiness Probe
+# ============================================================
+readinessProbe:
+  enabled: true
+  path: "/actuator/health/readiness"
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+# ============================================================
+# Liveness Probe
+# ============================================================
 
+livenessProbe:
+  enabled: true
+  path: "/actuator/health/liveness"
+  initialDelaySeconds: 60
+  periodSeconds: 20
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# ============================================================
+# Application Ingress - AWS ALB
+# ============================================================
+ingress:
+  enabled: true
+  className: "alb"
+  host: "cloudaiops.site"
+  path: "/app"
+  pathType: Prefix
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/group.name: "cloudaiops-public"
+    alb.ingress.kubernetes.io/group.order: "10"
+
+  tls:
+    enabled: true
+    certificateArn: ""
+# ============================================================
+# Horizontal Pod Autoscaler
+# ============================================================
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 2
+  targetCPUUtilizationPercentage: 60
+  targetMemoryUtilizationPercentage: 70
+
+# ============================================================
+# Pod Security Context
+# ============================================================
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+# ============================================================
+# Container Security Context
+# ============================================================
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop:
+      - ALL
+# ============================================================
+# Scheduling
+# ============================================================
+nodeSelector: {}
+tolerations: []
+affinity: {}
+# ============================================================
+# PostgreSQL
+# ============================================================
+postgresql:
+  enabled: true
   image:
     repository: postgres
     tag: "18"
     pullPolicy: IfNotPresent
-
-  dbName: employee-managementdb
-  user: postgres
+  database: studentdb
+  username: postgres
   password: postgres
   port: 5432
-
-  storage:
-    className: standard-rwo
-    size: 5Gi
-
+  service:
+    port: 5432
+  persistence:
+    enabled: true
+    storageClass: gp3
+    accessMode: ReadWriteOnce
+    size: 20Gi
   resources:
     requests:
-      cpu: "100m"
-      memory: "256Mi"
+      cpu: "250m"
+      memory: "512Mi"
     limits:
       cpu: "500m"
-      memory: "512Mi"
+      memory: "1Gi"
+  probes:
+    readiness:
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 6
 
-gateway:
-  enabled: true
-  className: gke-l7-global-external-managed
-  ipName: cloudaiops-gateway-ip
-  tlsSecretName: cloudaiops-tls
-  tlsPasswordBase64: cG9zdGdyZXM=
-  hostname: cloudaiops.site
-  createClass: false
-  appPath: /app
-  argocdPath: /argocd
-
-rbac:
-  create: true
-
-# ============================================================
-# Argo CD Helm chart values
-# ============================================================
-
-namespaceOverride: stateful-demo
-
-createClusterRoles: true
-
-controller:
-  serviceAccount:
-    create: false
-    name: employment-management-sa
-
-configs:
-  cm:
-    url: https://cloudaiops.site/argocd
-    application.sync.impersonation.enabled: "false"
-    application.sync.impersonation.enforced: "false"
-
-  params:
-    server.insecure: "true"
-    server.basehref: /argocd
-    server.rootpath: /argocd
+    liveness:
+      initialDelaySeconds: 30
+      periodSeconds: 20
+      timeoutSeconds: 5
+      failureThreshold: 6
