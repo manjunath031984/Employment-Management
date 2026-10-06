@@ -7,21 +7,16 @@ pipeline {
     // ENVIRONMENT
     // ============================================================
 
-    environment {
+environment {
+    AWS_DEFAULT_REGION = 'us-east-1'
+    AWS_REGION         = 'us-east-1'
+    TF_IN_AUTOMATION   = 'true'
+    TF_INPUT           = 'false'
+    TERRAFORM_DIR      = 'Infra/eks'
+    GODEBUG            = 'netdns=go+1'
 
-        AWS_DEFAULT_REGION = 'us-east-1'
-
-        AWS_REGION         = 'us-east-1'
-
-        TF_IN_AUTOMATION   = 'true'
-
-        TF_INPUT           = 'false'
-
-        TERRAFORM_DIR      = 'Infra/eks'
-
-        GODEBUG = 'netdns=go+1'
-
-    }
+    TF_PLUGIN_CACHE_DIR = '/var/jenkins_home/.terraform.d/plugin-cache'
+}
 
 
     // ============================================================
