@@ -7,27 +7,24 @@ pipeline {
     // ============================================================
 
     environment {
+        AWS_DEFAULT_REGION    = 'us-east-1'
+        AWS_REGION            = 'us-east-1'
 
-        AWS_DEFAULT_REGION = 'us-east-1'
-        AWS_REGION         = 'us-east-1'
+        TF_IN_AUTOMATION      = 'true'
+        TF_INPUT              = 'false'
 
-        TF_IN_AUTOMATION   = 'true'
-        TF_INPUT           = 'false'
+        TERRAFORM_DIR         = 'Infra/eks'
 
-        TERRAFORM_DIR      = 'Infra/eks'
+        GODEBUG               = 'netdns=go+1'
 
-        GODEBUG            = 'netdns=go+1'
-
-        TF_PLUGIN_CACHE_DIR = '/var/jenkins_home/.terraform.d/plugin-cache'
+        TF_PLUGIN_CACHE_DIR   = '/var/jenkins_home/.terraform.d/plugin-cache'
     }
-
 
     // ============================================================
     // PIPELINE OPTIONS
     // ============================================================
 
     options {
-
         timestamps()
 
         disableConcurrentBuilds()
@@ -36,12 +33,12 @@ pipeline {
 
         skipDefaultCheckout(true)
 
+        // Maximum pipeline execution time
         timeout(
             time: 60,
             unit: 'MINUTES'
         )
     }
-
 
     // ============================================================
     // PARAMETERS
@@ -66,26 +63,21 @@ pipeline {
         )
     }
 
-
     // ============================================================
     // STAGES
     // ============================================================
 
     stages {
 
-
         // ========================================================
         // CHECKOUT
         // ========================================================
 
         stage('Checkout') {
-
             steps {
-
                 checkout scm
             }
         }
-
 
         // ========================================================
         // ENVIRONMENT CHECK
@@ -134,7 +126,6 @@ pipeline {
                 }
             }
         }
-
 
         // ========================================================
         // TERRAFORM PREPARE
@@ -187,7 +178,6 @@ pipeline {
             }
         }
 
-
         // ========================================================
         // TERRAFORM PLAN
         // ========================================================
@@ -226,9 +216,7 @@ pipeline {
             }
 
             post {
-
                 always {
-
                     archiveArtifacts(
                         artifacts: 'Infra/eks/tfplan',
                         allowEmptyArchive: true
@@ -237,25 +225,23 @@ pipeline {
             }
         }
 
-
         // ========================================================
         // APPROVAL
         //
-        // Runs only for:
-        //     ACTION = apply
-        //     ACTION = destroy
+        // Runs only when:
+        //   ACTION = apply
+        //   ACTION = destroy
+        //   AUTO_APPROVE = false
         //
         // Skipped when:
-        //     ACTION = plan
-        //     AUTO_APPROVE = true
+        //   ACTION = plan
+        //   AUTO_APPROVE = true
         // ========================================================
 
         stage('Approval') {
 
             when {
-
                 expression {
-
                     return (
                         (params.ACTION == 'apply' ||
                          params.ACTION == 'destroy') &&
@@ -286,6 +272,13 @@ pipeline {
                                 'Approve Terraform APPLY for AWS EKS infrastructure?'
                         }
 
+                        echo "======================================"
+                        echo "MANUAL APPROVAL REQUIRED"
+                        echo "======================================"
+                        echo "Terraform Action: ${params.ACTION}"
+                        echo "Approval Required: YES"
+                        echo "Waiting for user approval..."
+                        echo "======================================"
 
                         input(
                             id: 'TerraformApproval',
@@ -297,7 +290,6 @@ pipeline {
             }
         }
 
-
         // ========================================================
         // TERRAFORM APPLY
         // ========================================================
@@ -305,9 +297,7 @@ pipeline {
         stage('Terraform Apply') {
 
             when {
-
                 expression {
-
                     return params.ACTION == 'apply'
                 }
             }
@@ -343,7 +333,6 @@ pipeline {
             }
         }
 
-
         // ========================================================
         // TERRAFORM DESTROY
         // ========================================================
@@ -351,9 +340,7 @@ pipeline {
         stage('Terraform Destroy') {
 
             when {
-
                 expression {
-
                     return params.ACTION == 'destroy'
                 }
             }
@@ -388,7 +375,6 @@ pipeline {
             }
         }
 
-
         // ========================================================
         // TERRAFORM OUTPUTS
         // ========================================================
@@ -396,9 +382,7 @@ pipeline {
         stage('Terraform Outputs') {
 
             when {
-
                 expression {
-
                     return params.ACTION == 'apply'
                 }
             }
@@ -422,17 +406,14 @@ pipeline {
                             echo "======================================"
 
                             echo ""
-
                             echo "Cluster Name:"
                             terraform output -raw cluster_name
 
                             echo ""
-
                             echo "Cluster ARN:"
                             terraform output -raw cluster_arn
 
                             echo ""
-
                             echo "EKS infrastructure deployment completed."
                         '''
                     }
@@ -440,7 +421,6 @@ pipeline {
             }
         }
     }
-
 
     // ============================================================
     // POST ACTIONS
@@ -459,7 +439,6 @@ pipeline {
             echo "Terraform Directory: ${TERRAFORM_DIR}"
         }
 
-
         failure {
 
             echo "======================================"
@@ -470,7 +449,6 @@ pipeline {
             echo "Please check the Jenkins console output."
         }
 
-
         aborted {
 
             echo "======================================"
@@ -480,7 +458,6 @@ pipeline {
             echo "Terraform Action: ${params.ACTION}"
             echo "Pipeline was stopped by the user or timeout."
         }
-
 
         always {
 
